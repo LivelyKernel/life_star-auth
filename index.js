@@ -1,5 +1,5 @@
 /*global require,process,setTimeout*/
 
-var auth = require("./lib/auth");
-
-module.exports = auth.HTTPHandler;
+module.exports = {
+  HTTPHandler: require("./lib/http-handler").HTTPHandler
+};

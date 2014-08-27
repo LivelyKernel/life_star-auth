@@ -1,21 +1,13 @@
 /*global module, console, setTimeout*/
 
+// continously run with:
+// nodemon nodeunit tests/auth-test.js
+
 var async = require('async'),
     util  = require('util'),
-    auth  = require('../lib/course-auth'),
+    auth  = require('../lib/auth'),
     fs    = require('fs'),
-    _     = require("underscore");
-
-var testHelper = require('./test-helper'),
-    lifeStarTest = require("./life_star-test-support"),
-    async = require('async'),
-    testSuite = {},
-    fs = require('fs');
-
-// continously run with:
-// nodemon nodeunit tests/course-auth-test.js
-
-var testHelper = require('./test-helper'),
+    _     = require("underscore"),
     testSuite = {};
 
 testSuite.UserDatabaseTest = {
@@ -99,27 +91,5 @@ testSuite.UserDatabaseTest = {
   }
 
 }
-
-// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-testSuite.AuthHandlerTest = {
-
-  tearDown: function(run) {
-    lifeStarTest.shutDownLifeStar(run);
-  },
-
-  "unauthorized access refirects to login page": function(test) {
-    lifeStarTest.withLifeStarDo(test, function() {
-      lifeStarTest.GET('/blank.html', function(res) {
-        test.equals(302, res.statusCode);
-        test.equals('Moved Temporarily. Redirecting to /uvic-login?redirect=%252Fblank.html', res.body);
-        test.done();
-      });
-    });
-  }
-
-}
-
-// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 module.exports.testSuite = testSuite;
