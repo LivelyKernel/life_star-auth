@@ -1,0 +1,23 @@
+{
+  "name": "life_star-auth",
+  "version": "0.1.0",
+  "author": "Robert Krahn <robert.krahn@gmail.com>",
+  "description": "Authentication and authorization for Lively Web servers",
+  "dependencies": {
+    "async": "^0.9",
+    "bcrypt": "^0.8.0",
+    "event-stream": "^3.1.7",
+    "underscore": "^1.7.0"
+  },
+  "devDependencies": {
+    "life_star": "^0.5.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LivelyKernel/life_star-auth.git"
+  },
+  "main": "index",
+  "scripts": {
+    "test": "node_modules/nodeunit/bin/nodeunit tests/*-test.js"
+  }
+}
