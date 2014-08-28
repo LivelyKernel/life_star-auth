@@ -7,7 +7,7 @@ var path = require("path"),
   var authDir = path.join(__dirname, ".."),
       lifeStarForTestDir = path.join(authDir, "node_modules/life_star"),
       authDirForLifeStar = path.join(lifeStarForTestDir, "node_modules/life_star-auth");
-  if (fs.existsSync(authDirForLifeStar)) fs.rmdirSync(authDirForLifeStar);
+  if (fs.existsSync(authDirForLifeStar)) fs.renameSync(authDirForLifeStar, authDirForLifeStar + '.orig');
   fs.symlinkSync(authDir, authDirForLifeStar, "dir");
   console.log("linking %s -> %s", authDir, authDirForLifeStar);
 })();
