@@ -1,6 +1,7 @@
 /*global module, console, setTimeout, __dirname*/
 
 var path = require("path"),
+    util = require('util'),
     fs   = require('fs');
 
 (function linkModuleToLifeStar() {
@@ -49,8 +50,8 @@ testSuite.AuthHandlerTest = {
     lifeStarTest.createDirStructure(__dirname, {
       "test-dir": {"bar.js": "content 123", "foo.html": "<h1>hello world</h1>"}});
    createUserAuthConf({"users": [
-      {"name": "xx", "group": "yy", "email": "x@y", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
-      {"name": "ab", "group": "de", "email": "a@b", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}]});
+      {"name": "user1", "group": "group1", "email": "user1@test", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
+      {"name": "user2", "group": "group2", "email": "user2@test", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}]});
     run();
   },
 
@@ -71,16 +72,33 @@ testSuite.AuthHandlerTest = {
     }, serverConf);
   },
 
-  // "do login": function(test) {
-  //   lifeStarTest.withLifeStarDo(test, function() {
-  //     lifeStarTest.POST('/foo.html', function(res) {
-  //       test.equals(302, res.statusCode);
-  //       test.equals('Moved Temporarily. Redirecting to /test-login?redirect=%252Ffoo.html', res.body);
-  //       test.done();
-  //     });
-  //   }, {authConf: {authenticationEnabled: true, cookieField: "test-auth-cookie"},
-  //       fsNode: path.join(__dirname, "test-dir")});
-  // }
+  "do login": function(test) {
+    lifeStarTest.withLifeStarDo(test, function() {
+      // first with wrong password
+      async.series([
+        function(next) {
+          lifeStarTest.POST('/test-login',
+            "username=user1&password=wrong+pwd",
+            {"Content-Type": "application/x-www-form-urlencoded"},
+            function(res) {
+              test.equals('Moved Temporarily. Redirecting to /test-login?note=Login%2520failed!', res.body);
+              next();
+            });
+        },
+        // now with correct
+        function(next) {
+          lifeStarTest.POST('/test-login',
+            "username=user1&password=foobar&redirect=%2Ffoo.html",
+            {"Content-Type": "application/x-www-form-urlencoded"},
+            function(res) {
+              test.equals('Moved Temporarily. Redirecting to /foo.html', res.body);
+              next();
+            });
+        }
+      ], test.done);
+    }, {authConf: {authenticationEnabled: true, cookieField: "test-auth-cookie"},
+        fsNode: path.join(__dirname, "test-dir")});
+  }
 
 }
 
