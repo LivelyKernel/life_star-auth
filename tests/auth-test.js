@@ -10,13 +10,22 @@ var async = require('async'),
     _     = require("underscore"),
     testSuite = {};
 
+var authConfFile = "test-user-db.json";
+function createUserAuthConf(data) {
+  fs.writeFileSync(authConfFile, JSON.stringify(data));
+  return data;
+}
+function cleanupAuthConfFile(thenDo) {
+  fs.unwatchFile(authConfFile);
+  if (fs.existsSync(authConfFile))
+    fs.unlinkSync(authConfFile);
+  thenDo && thenDo();
+}
+
 testSuite.UserDatabaseTest = {
 
   tearDown: function(run) {
-    fs.unwatchFile("test-user-db.json");
-    if (fs.existsSync("test-user-db.json"))
-      fs.unlinkSync("test-user-db.json");
-    run();
+    cleanupAuthConfFile(run);
   },
 
   "simple register user": function(test) {
@@ -31,10 +40,9 @@ testSuite.UserDatabaseTest = {
   },
 
   "read and write user db": function(test) {
-    var data = {"users": [
+    createUserAuthConf({"users": [
       {"name": "xx", "group": "yy", "email": "x@y", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
-      {"name": "ab", "group": "de", "email": "a@b", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}]};
-    fs.writeFileSync("test-user-db.json", JSON.stringify(data));
+      {"name": "ab", "group": "de", "email": "a@b", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}]});
     async.waterfall([
       function(next) { auth.UserDatabase.fromFile("test-user-db.json", next); },
       function(db, next) {
@@ -56,10 +64,9 @@ testSuite.UserDatabaseTest = {
   },
 
   "dont register user twice": function(test) {
-    var data = {"users": [
+    createUserAuthConf({"users": [
       {"name": "xx", "group": "yy", "email": "x@y", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
-      {"name": "ab", "group": "de", "email": "a@b", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}]};
-    fs.writeFileSync("test-user-db.json", JSON.stringify(data));
+      {"name": "ab", "group": "de", "email": "a@b", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}]});
     async.waterfall([
       function(next) { auth.UserDatabase.fromFile("test-user-db.json", next); },
       function(db, next) { db.register("xx", "grp", "a@c", "123", function(err, user) { next(null, err, user); }); },
@@ -72,16 +79,15 @@ testSuite.UserDatabaseTest = {
   },
 
   "file changes affect DB": function(test) {
-    var data = {"users": [
+    var data = createUserAuthConf({"users": [
       {"name": "xx", "group": "yy", "email": "x@y", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
-      {"name": "ab", "group": "de", "email": "a@b", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}]};
-    fs.writeFileSync("test-user-db.json", JSON.stringify(data));
+      {"name": "ab", "group": "de", "email": "a@b", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}]});
     async.waterfall([
       function(next) { auth.UserDatabase.fromFile("test-user-db.json", next); },
       function(db, next) { 
         data.users = [
           {"name": "yyy", "group": "zzz", "email": "z@zz", hash: "$2a$10$78IJnO/vGDi6dyH.5OovqOqJCeEcQsZlbMAHInobe9jNMEKmGRcEK"},]
-        fs.writeFileSync("test-user-db.json", JSON.stringify(data));
+        createUserAuthConf(data);
         setTimeout(function() { next(null, db); }, 2200); },
       function(db, next) {
         test.equals(1, db.users.length);
