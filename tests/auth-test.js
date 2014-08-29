@@ -12,7 +12,9 @@ var async = require('async'),
 
 var authConfFile = "test-user-db.json";
 function createUserAuthConf(data) {
-  fs.writeFileSync(authConfFile, JSON.stringify(data));
+  var toWrite = util._extend({}, data);
+  toWrite.accessRules && (toWrite.accessRules = toWrite.accessRules.map(String));
+  fs.writeFileSync(authConfFile, JSON.stringify(toWrite));
   return data;
 }
 function cleanupAuthConfFile(thenDo) {
@@ -93,6 +95,78 @@ testSuite.UserDatabaseTest = {
         test.equals(1, db.users.length);
         db.checkPassword("yyy", "12345", function(err, matches) { next(err, db, matches); });
       },
+    ], test.done);
+  }
+}
+
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+function makeRequestObj(spec) {
+  return {
+    headers: spec.headers || {},
+    url: spec.url || '/',
+    method: spec.method || 'GET',
+    query: spec.query || {},
+    body: spec.body || {},
+    session: spec.session || {}
+  }
+  // 'lvUserData_2013-10-12': {
+  //     username: 'robertkrahn',
+  //     email: 'robert.krahn@gmail.com',
+  //     group: 'admin',
+  //     lastLogin: '2014-08-28T23:27:35.192Z',
+  //     passwordHash: '$2a$10$XiO0.h3qJZmB2dPiO/rrleo5c15qnA6OAmdPzyCk8f1yG4SubZNL.' 
+  // }
+
+}
+
+testSuite.AccessChainsTest = {
+
+  tearDown: function(run) {
+    cleanupAuthConfFile(run);
+  },
+
+  "add simple chain rule": function(test) {
+    createUserAuthConf({
+      "users": [
+        {"name": "userX", "email": "x@y", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
+        {"name": "userY", "email": "y@z", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}],
+      "accessRules": [
+        function(user, req, callback) { callback(null, user.name === "userX" ? "allow" : null); },
+        function(user, req, callback) { callback(null, user.name === "userY" && req.method === "GET" ? "allow" : null); }
+      ]});
+
+    async.waterfall([
+      function(next) { auth.UserDatabase.fromFile("test-user-db.json", next); },
+      function(db, next) { test.equals(2, db.accessRules.length); next(null, db); },
+
+      function(db, next) {
+        var sessionCookie = {username: 'userX',passwordHash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"};
+        db.isRequestAllowed(
+          sessionCookie, makeRequestObj({method: "GET", url: "/foo.html"}),
+          function(err, isAllowed) { test.ok(isAllowed, "userX should be allowed"); next(null, db); });
+      },
+
+      function(db, next) {
+        var sessionCookie = {username: 'userX', passwordHash: "wrong"};
+        db.isRequestAllowed(
+          sessionCookie, makeRequestObj({method: "GET", url: "/foo.html"}),
+          function(err, isAllowed) { test.ok(!isAllowed, "don't allow if password does not match"); next(null, db); });
+      },
+
+      function(db, next) {
+        var sessionCookie = {username: 'userY', passwordHash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"};
+        db.isRequestAllowed(
+          sessionCookie, makeRequestObj({method: "GET", url: "/foo.html"}),
+          function(err, isAllowed) { test.ok(isAllowed, "GET for userY should work"); next(null, db); });
+      },
+
+      function(db, next) {
+        var sessionCookie = {username: 'userY', passwordHash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"};
+        db.isRequestAllowed(
+          sessionCookie, makeRequestObj({method: "PUT", url: "/foo.html"}),
+          function(err, isAllowed) { test.ok(!isAllowed, "PUT for userY should not be allowed"); next(null, db); });
+      }
     ], test.done);
   }
 
