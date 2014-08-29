@@ -1,41 +1,16 @@
 /*global module, console, setTimeout, __dirname*/
 
-var path = require("path"),
-    util = require('util'),
-    fs   = require('fs');
+var helper    = require('./helper');
+helper.linkLifeStarAuthModuleToLifeStar();
 
-(function linkModuleToLifeStar() {
-  var authDir = path.join(__dirname, ".."),
-      lifeStarForTestDir = path.join(authDir, "node_modules/life_star"),
-      authDirForLifeStar = path.join(lifeStarForTestDir, "node_modules/life_star-auth");
-  if (fs.existsSync(authDirForLifeStar)) fs.renameSync(authDirForLifeStar, authDirForLifeStar + '.orig');
-  fs.symlinkSync(authDir, authDirForLifeStar, "dir");
-  console.log("linking %s -> %s", authDir, authDirForLifeStar);
-})();
-
-var authConfFile = "test-user-db.json";
-function createUserAuthConf(data) {
-  fs.writeFileSync(authConfFile, JSON.stringify(data));
-  return data;
-}
-function cleanupAuthConfFile(thenDo) {
-  fs.unwatchFile(authConfFile);
-  if (fs.existsSync(authConfFile))
-    fs.unlinkSync(authConfFile);
-  thenDo && thenDo();
-}
-
-function cookieFromResponse(req) {
-  var cookie = req.headers['set-cookie'][0];
-  var decoded = decodeURIComponent(cookie)
-  var parsed = JSON.parse(decoded.slice(decoded.indexOf('{'), decoded.lastIndexOf('}')+1));
-  return parsed;
-}
-
-var testHelper   = require('life_star/tests/test-helper'),
+var path      = require("path"),
+    async     = require('async'),
+    util      = require('util'),
+    fs        = require('fs'),
+    testHelper   = require('life_star/tests/test-helper'),
     lifeStarTest = require("life_star/tests/life_star-test-support"),
-    async        = require('async'),
     testSuite    = {},
+    authConfFile = "test-user-db.json",
     serverConf   = {
       authConf: {
         enabled: true,
@@ -50,13 +25,13 @@ var testHelper   = require('life_star/tests/test-helper'),
       fsNode: path.join(__dirname, "test-dir")
     };
 
-
-testSuite.AuthHandlerTest = {
+testSuite.AuthHandlerRequests = {
 
   setUp: function(run) {
     lifeStarTest.createDirStructure(__dirname, {
       "test-dir": {"bar.js": "content 123", "foo.html": "<h1>hello world</h1>"}});
-   createUserAuthConf({"users": [
+   helper.createUserAuthConf(authConfFile, {
+   "users": [
       {"name": "user1", "group": "group1", "email": "user1@test", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
       {"name": "user2", "group": "group2", "email": "user2@test", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}]});
     run();
@@ -64,7 +39,7 @@ testSuite.AuthHandlerTest = {
 
   tearDown: function(run) {
     async.series([
-      cleanupAuthConfFile,
+      helper.cleanupAuthConfFile.bind(helper, authConfFile),
       lifeStarTest.cleanupTempFiles,
       lifeStarTest.shutDownLifeStar], run);
   },
@@ -88,7 +63,7 @@ testSuite.AuthHandlerTest = {
             "username=user1&password=wrong+pwd", {"Content-Type": "application/x-www-form-urlencoded"},
             function(res) {
               test.equals('Moved Temporarily. Redirecting to /test-login?note=Login%2520failed!', res.body);
-              test.deepEqual({}, cookieFromResponse(res));
+              test.deepEqual({}, helper.cookieFromResponse(res));
               next();
             });
         },
@@ -104,7 +79,7 @@ testSuite.AuthHandlerTest = {
                   group: 'group1',
                   email: 'user1@test',
                   passwordHash: '$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS'}},
-                cookieFromResponse(res));
+                helper.cookieFromResponse(res));
               next();
             });
         }
@@ -121,7 +96,7 @@ testSuite.AuthHandlerTest = {
             "username=user3&password=xxx", {"Content-Type": "application/x-www-form-urlencoded"},
             function(res) {
               test.equals('Moved Temporarily. Redirecting to /welcome.html', res.body);
-              test.equals("user3", cookieFromResponse(res)["test-auth-cookie"].username);
+              test.equals("user3", helper.cookieFromResponse(res)["test-auth-cookie"].username);
               next();
             });
         },
@@ -135,11 +110,68 @@ testSuite.AuthHandlerTest = {
           lifeStarTest.POST('/test-login',
             "username=user3&password=xxx", {"Content-Type": "application/x-www-form-urlencoded"},
             function(res) {
-              test.equals("user3", cookieFromResponse(res)["test-auth-cookie"].username);
+              test.equals("user3", helper.cookieFromResponse(res)["test-auth-cookie"].username);
               next();
             });
         }
       ], test.done);
+    }, serverConf);
+  }
+
+}
+
+
+testSuite.AccessControlViaChains = {
+
+  setUp: function(run) {
+    lifeStarTest.createDirStructure(__dirname, {
+      "test-dir": {
+        "bar.js": "content 123",
+        "foo.html": "<h1>hello world</h1>",
+        "restricted-dir": {
+          "page1.html": "<h1>foo</h1>",
+          "page2.html": "<h1>barrrr</h1>"
+        }
+      }
+    });
+   helper.createUserAuthConf(authConfFile, {
+   "users": [
+      {"name": "user1", "group": "group1", "email": "user1@test", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
+      {"name": "user2", "group": "group2", "email": "user2@test", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}],
+    "accessRules": [
+      function(user, req, callback) { callback(null, !req.path.match(/\/restricted-dir\//) ? "allow" : null); },
+      function(user, req, callback) { callback(null, user.name === "user1" ? "allow" : null); }]
+    });
+    run();
+  },
+
+  tearDown: function(run) {
+    async.series([
+      helper.cleanupAuthConfFile.bind(helper, authConfFile),
+      lifeStarTest.cleanupTempFiles,
+      lifeStarTest.shutDownLifeStar], run);
+  },
+
+  "authorized access": function(test) {
+    lifeStarTest.withLifeStarDo(test, function() {
+      lifeStarTest.GET('/foo.html', "",
+        {"Cookie": helper.createAuthCookie({"test-auth-cookie": {"username":"user1", "passwordHash":"$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"}})},
+        function(res) {
+          test.equals(200, res.statusCode);
+          test.equals('<h1>hello world</h1>', res.body);
+          test.done();
+        });
+    }, serverConf);
+  },
+
+  "unauthorized access": function(test) {
+    lifeStarTest.withLifeStarDo(test, function() {
+      lifeStarTest.GET('/restricted-dir/page1.html', "",
+        {"Cookie": helper.createAuthCookie({"test-auth-cookie": {"username": "user2", "passwordHash": "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}})},
+        function(res) {
+          test.equals(403, res.statusCode);
+          test.done();
+        });
     }, serverConf);
   }
 

@@ -10,6 +10,7 @@
     "underscore": "^1.7.0"
   },
   "devDependencies": {
+    "cookie-signature": "^1.0.4",
     "life_star": "git://github.com/LivelyKernel/life_star.git#auth",
     "nodeunit": "^0.9.0"
   },

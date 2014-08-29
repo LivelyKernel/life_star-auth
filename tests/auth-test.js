@@ -3,31 +3,20 @@
 // continously run with:
 // nodemon nodeunit tests/auth-test.js
 
-var async = require('async'),
-    util  = require('util'),
-    auth  = require('../lib/auth'),
-    fs    = require('fs'),
-    _     = require("underscore"),
+var async     = require('async'),
+    util      = require('util'),
+    helper    = require('./helper'),
+    auth      = require('../lib/auth'),
+    fs        = require('fs'),
+    _         = require("underscore"),
     testSuite = {};
 
 var authConfFile = "test-user-db.json";
-function createUserAuthConf(data) {
-  var toWrite = util._extend({}, data);
-  toWrite.accessRules && (toWrite.accessRules = toWrite.accessRules.map(String));
-  fs.writeFileSync(authConfFile, JSON.stringify(toWrite));
-  return data;
-}
-function cleanupAuthConfFile(thenDo) {
-  fs.unwatchFile(authConfFile);
-  if (fs.existsSync(authConfFile))
-    fs.unlinkSync(authConfFile);
-  thenDo && thenDo();
-}
 
 testSuite.UserDatabaseTest = {
 
   tearDown: function(run) {
-    cleanupAuthConfFile(run);
+    helper.cleanupAuthConfFile(authConfFile, run);
   },
 
   "simple register user": function(test) {
@@ -42,7 +31,7 @@ testSuite.UserDatabaseTest = {
   },
 
   "read and write user db": function(test) {
-    createUserAuthConf({"users": [
+    helper.createUserAuthConf(authConfFile, {"users": [
       {"name": "xx", "group": "yy", "email": "x@y", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
       {"name": "ab", "group": "de", "email": "a@b", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}]});
     async.waterfall([
@@ -66,7 +55,7 @@ testSuite.UserDatabaseTest = {
   },
 
   "dont register user twice": function(test) {
-    createUserAuthConf({"users": [
+    helper.createUserAuthConf(authConfFile, {"users": [
       {"name": "xx", "group": "yy", "email": "x@y", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
       {"name": "ab", "group": "de", "email": "a@b", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}]});
     async.waterfall([
@@ -81,7 +70,7 @@ testSuite.UserDatabaseTest = {
   },
 
   "file changes affect DB": function(test) {
-    var data = createUserAuthConf({"users": [
+    var data = helper.createUserAuthConf(authConfFile, {"users": [
       {"name": "xx", "group": "yy", "email": "x@y", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
       {"name": "ab", "group": "de", "email": "a@b", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}]});
     async.waterfall([
@@ -89,7 +78,7 @@ testSuite.UserDatabaseTest = {
       function(db, next) { 
         data.users = [
           {"name": "yyy", "group": "zzz", "email": "z@zz", hash: "$2a$10$78IJnO/vGDi6dyH.5OovqOqJCeEcQsZlbMAHInobe9jNMEKmGRcEK"},]
-        createUserAuthConf(data);
+        helper.createUserAuthConf(authConfFile, data);
         setTimeout(function() { next(null, db); }, 2200); },
       function(db, next) {
         test.equals(1, db.users.length);
@@ -123,11 +112,11 @@ function makeRequestObj(spec) {
 testSuite.AccessChainsTest = {
 
   tearDown: function(run) {
-    cleanupAuthConfFile(run);
+    helper.cleanupAuthConfFile(authConfFile, run);
   },
 
   "add simple chain rule": function(test) {
-    createUserAuthConf({
+    helper.createUserAuthConf(authConfFile, {
       "users": [
         {"name": "userX", "email": "x@y", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
         {"name": "userY", "email": "y@z", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}],
