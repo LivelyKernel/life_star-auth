@@ -167,51 +167,52 @@ testSuite.AccessChainsTest = {
 
 testSuite.UserDBAccessAndChange = {
 
+  setUp: function(run) {
+    helper.createUserAuthConf(authConfFile, {
+    "users": [
+      {"name": "userX", "email": "x@y", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
+      {"name": "userY", "email": "y@z", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}],
+    "accessRules": [
+      function(user, req, callback) { callback(null, user.name === "userX" ? "allow" : null); },
+      function(user, req, callback) { callback(null, user.name === "userY" && req.method === "GET" ? "allow" : null); }
+    ]});
+    run();
+  },
+
   tearDown: function(run) {
     helper.cleanupAuthConfFile(authConfFile, run);
   },
 
   "export auth settings": function(test) {
-    helper.createUserAuthConf(authConfFile, {
-      "users": [
-        {"name": "userX", "email": "x@y", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
-        {"name": "userY", "email": "y@z", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}],
-      "accessRules": [
-        function(user, req, callback) { callback(null, user.name === "userX" ? "allow" : null); },
-        function(user, req, callback) { callback(null, user.name === "userY" && req.method === "GET" ? "allow" : null); }
-      ]});
-
     async.waterfall([
       function(next) { auth.UserDatabase.fromFile("test-user-db.json", next); },
-      function(db, next) { test.equals(2, db.accessRules.length); next(null, db); },
-      function(db, next) { test.equals(2, db.accessRules.length); next(null, db); },
-
-      function(db, next) {
-        var sessionCookie = {username: 'userX',passwordHash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"};
-        db.isRequestAllowed(
-          sessionCookie, makeRequestObj({method: "GET", url: "/foo.html"}),
-          function(err, isAllowed) { test.ok(isAllowed, "userX should be allowed"); next(null, db); });
+      function(db, next) { db.exportSettings(next); },
+      function(exported, next) {
+        test.deepEqual(2, exported.users.length);
+        test.deepEqual(2, exported.accessRules.length);
+        test.deepEqual('string', typeof exported.accessRules[0]);
+        next(null); 
       },
+    ], test.done);
+  },
 
+  "import auth settings": function(test) {
+    async.waterfall([
+      function(next) { auth.UserDatabase.fromFile("test-user-db.json", next); },
+      function(db, next) { db.importSettings({users: [{name: "foo"}]}, true, function(err) { next(err, db); }); },
       function(db, next) {
-        var sessionCookie = {username: 'userX', passwordHash: "wrong"};
-        db.isRequestAllowed(
-          sessionCookie, makeRequestObj({method: "GET", url: "/foo.html"}),
-          function(err, isAllowed) { test.ok(!isAllowed, "don't allow if password does not match"); next(null, db); });
+        test.deepEqual(1, db.users.length);
+        test.deepEqual(0, db.accessRules.length);
+        next(); 
       },
-
-      function(db, next) {
-        var sessionCookie = {username: 'userY', passwordHash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"};
-        db.isRequestAllowed(
-          sessionCookie, makeRequestObj({method: "GET", url: "/foo.html"}),
-          function(err, isAllowed) { test.ok(isAllowed, "GET for userY should work"); next(null, db); });
-      },
-
-      function(db, next) {
-        var sessionCookie = {username: 'userY', passwordHash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"};
-        db.isRequestAllowed(
-          sessionCookie, makeRequestObj({method: "PUT", url: "/foo.html"}),
-          function(err, isAllowed) { test.ok(!isAllowed, "PUT for userY should not be allowed"); next(null, db); });
+      fs.readFile.bind(fs, "test-user-db.json"),
+      function(fileContent, next) {
+        try {
+          var jso = JSON.parse(fileContent);
+        } catch (e) { console.error(e + "(" + fileContent + ")");}
+        test.deepEqual(1, jso.users.length);
+        test.deepEqual(0, jso.accessRules.length);
+        next();
       }
     ], test.done);
   }
