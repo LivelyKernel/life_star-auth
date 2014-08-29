@@ -188,9 +188,9 @@ testSuite.UserDBAccessAndChange = {
       function(next) { auth.UserDatabase.fromFile("test-user-db.json", next); },
       function(db, next) { db.exportSettings(next); },
       function(exported, next) {
-        test.deepEqual(2, exported.users.length);
-        test.deepEqual(2, exported.accessRules.length);
-        test.deepEqual('string', typeof exported.accessRules[0]);
+        test.equals(2, exported.users.length);
+        test.equals(2, exported.accessRules.length);
+        test.equals('string', typeof exported.accessRules[0]);
         next(null); 
       },
     ], test.done);
@@ -201,21 +201,101 @@ testSuite.UserDBAccessAndChange = {
       function(next) { auth.UserDatabase.fromFile("test-user-db.json", next); },
       function(db, next) { db.importSettings({users: [{name: "foo"}]}, true, function(err) { next(err, db); }); },
       function(db, next) {
-        test.deepEqual(1, db.users.length);
-        test.deepEqual(0, db.accessRules.length);
+        test.equals(1, db.users.length);
+        test.equals(0, db.accessRules.length);
         next(); 
       },
       fs.readFile.bind(fs, "test-user-db.json"),
       function(fileContent, next) {
-        try {
-          var jso = JSON.parse(fileContent);
-        } catch (e) { console.error(e + "(" + fileContent + ")");}
-        test.deepEqual(1, jso.users.length);
-        test.deepEqual(0, jso.accessRules.length);
+        test.equals(1, JSON.parse(fileContent).users.length);
+        test.equals(0, JSON.parse(fileContent).accessRules.length);
         next();
       }
     ], test.done);
-  }
+  },
+
+  "add user": function(test) {
+    var db;
+    async.waterfall([
+      function(next) { auth.UserDatabase.fromFile("test-user-db.json", next); },
+
+      // 1. new user
+      function(_db, next) {
+        db = _db;
+        db.addUser({name: 'new-user',group: 'group01', email: 'new-user@142.104.17.134', hash: 'xy'}, next);
+      },
+      function(next) {
+        test.equals(3, db.users.length);
+        test.equals(2, db.accessRules.length);
+        next(); 
+      },
+      fs.readFile.bind(fs, "test-user-db.json"),
+      function(fileContent, next) {
+        test.equals(3, JSON.parse(fileContent).users.length);
+        next();
+      },
+      
+      // 2. change existing user
+      function(next) {
+        db.addUser({"name": "userX", "email": "xxx@y", hash: ""}, next);
+      },
+      function(next) {
+        test.equals(3, db.users.length);
+        test.equals("xxx@y", db.users[0].email);
+        next(); 
+      },
+      fs.readFile.bind(fs, "test-user-db.json"),
+      function(fileContent, next) {
+        test.equals(3, JSON.parse(fileContent).users.length);
+        next();
+      },
+      
+    ], test.done);
+  },
+
+  "remove user": function(test) {
+    async.waterfall([
+      function(next) { auth.UserDatabase.fromFile("test-user-db.json", next); },
+      function(db, next) {
+        db.removeUserNamed("userX", function(err) { next(err, db); });
+      },
+      function(db, next) {
+        test.equals(1, db.users.length);
+        test.equals(2, db.accessRules.length);
+        next(); 
+      }
+    ], test.done);
+  },
+
+  "get access rules": function(test) {
+    async.waterfall([
+      function(next) { auth.UserDatabase.fromFile("test-user-db.json", next); },
+      function(db, next) { db.getAccessRules(next); },
+      function(rules, next) {
+        test.deepEqual([
+          'function (user, req, callback) { callback(null, user.name === "userX" ? "allow" : null); }',
+          'function (user, req, callback) { callback(null, user.name === "userY" && req.method === "GET" ? "allow" : null); }'],
+          rules);
+        next(); 
+      }
+    ], test.done);
+  },
+
+  "set access rules": function(test) {
+    async.waterfall([
+      function(next) { auth.UserDatabase.fromFile("test-user-db.json", next); },
+      function(db, next) {
+        db.setAccessRules(['function (user, req, callback) { callback(null, "deny"); }'], function(err) {
+          next(err, db); });
+      },
+      function(db, next) {
+        test.equals(1, db.accessRules.length);
+        test.equals('function', typeof db.accessRules[0]);
+        test.equals('function (user, req, callback) { callback(null, "deny"); }', String(db.accessRules[0]));
+        next(); 
+      }
+    ], test.done);
+  },
 
 }
 
