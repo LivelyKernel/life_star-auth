@@ -43,9 +43,12 @@ testSuite.UserDatabaseTest = {
       function(db, matches, next) { test.ok(matches); next(null, db); },
       function(db, next) { db.register("new-user", "grp", "a@c", "123", next); },
       function(user, next) {
-        fs.readFile("test-user-db.json", function(err, content) { next(err, user, String(content)); }); },
+        fs.readFile("test-user-db.json", function(err, content) { next(err, user, String(content)); });
+      },
       function(user, fileContent, next) {
-        var jso = JSON.parse(fileContent);
+        try {
+          var jso = JSON.parse(fileContent);
+        } catch (e) { console.error(e + "(" + fileContent + ")");}
         var storedUser = _.find(jso.users, function(ea) { return ea.name === "new-user"; });
         test.ok(storedUser, "no user found");
         test.deepEqual(user, storedUser);
@@ -127,6 +130,60 @@ testSuite.AccessChainsTest = {
 
     async.waterfall([
       function(next) { auth.UserDatabase.fromFile("test-user-db.json", next); },
+      function(db, next) { test.equals(2, db.accessRules.length); next(null, db); },
+
+      function(db, next) {
+        var sessionCookie = {username: 'userX',passwordHash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"};
+        db.isRequestAllowed(
+          sessionCookie, makeRequestObj({method: "GET", url: "/foo.html"}),
+          function(err, isAllowed) { test.ok(isAllowed, "userX should be allowed"); next(null, db); });
+      },
+
+      function(db, next) {
+        var sessionCookie = {username: 'userX', passwordHash: "wrong"};
+        db.isRequestAllowed(
+          sessionCookie, makeRequestObj({method: "GET", url: "/foo.html"}),
+          function(err, isAllowed) { test.ok(!isAllowed, "don't allow if password does not match"); next(null, db); });
+      },
+
+      function(db, next) {
+        var sessionCookie = {username: 'userY', passwordHash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"};
+        db.isRequestAllowed(
+          sessionCookie, makeRequestObj({method: "GET", url: "/foo.html"}),
+          function(err, isAllowed) { test.ok(isAllowed, "GET for userY should work"); next(null, db); });
+      },
+
+      function(db, next) {
+        var sessionCookie = {username: 'userY', passwordHash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"};
+        db.isRequestAllowed(
+          sessionCookie, makeRequestObj({method: "PUT", url: "/foo.html"}),
+          function(err, isAllowed) { test.ok(!isAllowed, "PUT for userY should not be allowed"); next(null, db); });
+      }
+    ], test.done);
+  }
+
+}
+
+
+testSuite.UserDBAccessAndChange = {
+
+  tearDown: function(run) {
+    helper.cleanupAuthConfFile(authConfFile, run);
+  },
+
+  "export auth settings": function(test) {
+    helper.createUserAuthConf(authConfFile, {
+      "users": [
+        {"name": "userX", "email": "x@y", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
+        {"name": "userY", "email": "y@z", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}],
+      "accessRules": [
+        function(user, req, callback) { callback(null, user.name === "userX" ? "allow" : null); },
+        function(user, req, callback) { callback(null, user.name === "userY" && req.method === "GET" ? "allow" : null); }
+      ]});
+
+    async.waterfall([
+      function(next) { auth.UserDatabase.fromFile("test-user-db.json", next); },
+      function(db, next) { test.equals(2, db.accessRules.length); next(null, db); },
       function(db, next) { test.equals(2, db.accessRules.length); next(null, db); },
 
       function(db, next) {

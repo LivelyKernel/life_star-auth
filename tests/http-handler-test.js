@@ -139,8 +139,8 @@ testSuite.AccessControlViaChains = {
       {"name": "user1", "group": "group1", "email": "user1@test", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
       {"name": "user2", "group": "group2", "email": "user2@test", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}],
     "accessRules": [
-      function(user, req, callback) { callback(null, !req.path.match(/\/restricted-dir\//) ? "allow" : null); },
-      function(user, req, callback) { callback(null, user.name === "user1" ? "allow" : null); }]
+      function(user, req, callback) { callback(null, user.name === "user1" ? "allow" : null); },
+      function(user, req, callback) { callback(null, !req.path.match(/\/restricted-dir\//) && req.method === "GET" ? "allow" : null); }]
     });
     run();
   },
@@ -164,9 +164,20 @@ testSuite.AccessControlViaChains = {
     }, serverConf);
   },
 
-  "unauthorized access": function(test) {
+  "unauthorized GET": function(test) {
     lifeStarTest.withLifeStarDo(test, function() {
       lifeStarTest.GET('/restricted-dir/page1.html', "",
+        {"Cookie": helper.createAuthCookie({"test-auth-cookie": {"username": "user2", "passwordHash": "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}})},
+        function(res) {
+          test.equals(403, res.statusCode);
+          test.done();
+        });
+    }, serverConf);
+  },
+
+  "unauthorized PUT": function(test) {
+    lifeStarTest.withLifeStarDo(test, function() {
+      lifeStarTest.PUT('/foo.html', "<bla bla bla/>",
         {"Cookie": helper.createAuthCookie({"test-auth-cookie": {"username": "user2", "passwordHash": "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}})},
         function(res) {
           test.equals(403, res.statusCode);
