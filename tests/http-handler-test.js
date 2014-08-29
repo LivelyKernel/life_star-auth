@@ -25,6 +25,13 @@ function cleanupAuthConfFile(thenDo) {
   thenDo && thenDo();
 }
 
+function cookieFromResponse(req) {
+  var cookie = req.headers['set-cookie'][0];
+  var decoded = decodeURIComponent(cookie)
+  var parsed = JSON.parse(decoded.slice(decoded.indexOf('{'), decoded.lastIndexOf('}')+1));
+  return parsed;
+}
+
 var testHelper   = require('life_star/tests/test-helper'),
     lifeStarTest = require("life_star/tests/life_star-test-support"),
     async        = require('async'),
@@ -78,26 +85,62 @@ testSuite.AuthHandlerTest = {
       async.series([
         function(next) {
           lifeStarTest.POST('/test-login',
-            "username=user1&password=wrong+pwd",
-            {"Content-Type": "application/x-www-form-urlencoded"},
+            "username=user1&password=wrong+pwd", {"Content-Type": "application/x-www-form-urlencoded"},
             function(res) {
               test.equals('Moved Temporarily. Redirecting to /test-login?note=Login%2520failed!', res.body);
+              test.deepEqual({}, cookieFromResponse(res));
               next();
             });
         },
         // now with correct
         function(next) {
           lifeStarTest.POST('/test-login',
-            "username=user1&password=foobar&redirect=%2Ffoo.html",
-            {"Content-Type": "application/x-www-form-urlencoded"},
+            "username=user1&password=foobar&redirect=%2Ffoo.html", {"Content-Type": "application/x-www-form-urlencoded"},
             function(res) {
               test.equals('Moved Temporarily. Redirecting to /foo.html', res.body);
+              test.deepEqual({
+                'test-auth-cookie': {
+                  username: 'user1',
+                  group: 'group1',
+                  email: 'user1@test',
+                  passwordHash: '$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS'}},
+                cookieFromResponse(res));
               next();
             });
         }
       ], test.done);
-    }, {authConf: {authenticationEnabled: true, cookieField: "test-auth-cookie"},
-        fsNode: path.join(__dirname, "test-dir")});
+    }, serverConf);
+  },
+
+  "test register user": function(test) {
+    lifeStarTest.withLifeStarDo(test, function() {
+      // first with wrong password
+      async.series([
+        function(next) {
+          lifeStarTest.POST('/test-register',
+            "username=user3&password=xxx", {"Content-Type": "application/x-www-form-urlencoded"},
+            function(res) {
+              test.equals('Moved Temporarily. Redirecting to /welcome.html', res.body);
+              test.equals("user3", cookieFromResponse(res)["test-auth-cookie"].username);
+              next();
+            });
+        },
+        function(next) {
+          var fileContent = fs.readFileSync(authConfFile);
+          var jso = JSON.parse(fileContent);
+          test.equals("user3", jso.users.slice(-1)[0].name)
+          next();
+        },
+        function(next) {
+          lifeStarTest.POST('/test-login',
+            "username=user3&password=xxx", {"Content-Type": "application/x-www-form-urlencoded"},
+            function(res) {
+              test.equals("user3", cookieFromResponse(res)["test-auth-cookie"].username);
+              next();
+            });
+        }
+      ], test.done);
+    }, serverConf);
   }
 
 }
