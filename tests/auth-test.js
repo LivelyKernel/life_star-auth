@@ -22,10 +22,10 @@ testSuite.UserDatabaseTest = {
   "simple register user": function(test) {
     var db = new auth.UserDatabase();
     test.equals(0, db.users.length);
-    db.register("foo", "foos group", "foo@bar", "geheim", function(err, user) {
+    db.register({name: "foo", group: "foos group", email: "foo@bar", password: "geheim"}, function(err, user) {
       test.ok(!err, "error? " + err);
       test.equals(1, db.users.length);
-      test.deepEqual([{name: "foo", group: "foos group", email: "foo@bar", hash: user.hash}], db.users);
+      test.deepEqual([{name: "foo", custom: {group: "foos group"}, email: "foo@bar", hash: user.hash}], db.users);
       test.done();
     });
   },
@@ -41,7 +41,7 @@ testSuite.UserDatabaseTest = {
         db.checkPassword("xx", "foobar", function(err, matches) { next(err, db, matches); });
       },
       function(db, matches, next) { test.ok(matches); next(null, db); },
-      function(db, next) { db.register("new-user", "grp", "a@c", "123", next); },
+      function(db, next) { db.register({name: "new-user", group: "grp", email: "a@c", password: "123"}, next); },
       function(user, next) {
         fs.readFile("test-user-db.json", function(err, content) { next(err, user, String(content)); });
       },
@@ -63,7 +63,7 @@ testSuite.UserDatabaseTest = {
       {"name": "ab", "group": "de", "email": "a@b", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}]});
     async.waterfall([
       function(next) { auth.UserDatabase.fromFile("test-user-db.json", next); },
-      function(db, next) { db.register("xx", "grp", "a@c", "123", function(err, user) { next(null, err, user); }); },
+      function(db, next) { db.register({name: "xx", group: "grp", email: "a@c", password: "123"}, function(err, user) { next(null, err, user); }); },
       function(err, user, next) {
         test.ok(err && String(err).match(/User xx already exists/i), String(err));
         test.ok(!user, "user created?");
