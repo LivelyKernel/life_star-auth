@@ -20,7 +20,8 @@ var path      = require("path"),
           login: '/test-login',
           register: '/test-register',
           logout: '/test-logout',
-          currentUser: '/test-current-user'
+          currentUser: '/test-current-user',
+          checkPassword: '/test-check-password'
         }
       },
       fsNode: path.join(__dirname, "test-dir")
