@@ -19,7 +19,8 @@ var path      = require("path"),
         paths: {
           login: '/test-login',
           register: '/test-register',
-          logout: '/test-logout'
+          logout: '/test-logout',
+          currentUser: '/test-current-user'
         }
       },
       fsNode: path.join(__dirname, "test-dir")
@@ -130,6 +131,45 @@ testSuite.AuthHandlerRequests = {
         }
 
       ], test.done);
+    }, serverConf);
+  },
+
+  "get current user": function(test) {
+    lifeStarTest.withLifeStarDo(test, function() {
+      var cookieData = {"username":"user1", "passwordHash":"$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"};
+      lifeStarTest.GET('/test-current-user', "",
+        {"Cookie": helper.createAuthCookie({"test-auth-cookie": cookieData})},
+        function(res) {
+          test.equals(200, res.statusCode);
+          test.deepEqual({
+            "name": cookieData.username, "email": "user1@test",
+            "hash": cookieData.passwordHash,
+            "custom": {"groups": ["group1"]}
+          }, JSON.parse(res.body));
+          test.done();
+        });
+    }, serverConf);
+  },
+
+  "change current user": function(test) {
+    lifeStarTest.withLifeStarDo(test, function() {
+      var cookieData = {"username":"user1", "passwordHash":"$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"};
+      lifeStarTest.POST('/test-current-user', JSON.stringify({password: "oioioi", custom: {groups: ["group1", "group2"]}}),
+        {"Cookie": helper.createAuthCookie({"test-auth-cookie": cookieData}),
+         "Content-Type": "application/json"},
+        function(res) {
+          test.equals(200, res.statusCode);
+          var result = JSON.parse(res.body);
+          test.deepEqual({
+            "name": cookieData.username, "email": "user1@test",
+            "hash": result.hash,
+            "custom": {"groups": ["group1", "group2"]}
+          }, result);
+          test.ok(result.hash !== cookieData.passwordHash, "password not updated");
+          var cookie = helper.cookieFromResponse(res)["test-auth-cookie"];
+          test.equals(result.hash, cookie && cookie.passwordHash);
+          test.done();
+        });
     }, serverConf);
   }
 
