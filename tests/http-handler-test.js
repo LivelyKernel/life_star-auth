@@ -32,8 +32,8 @@ testSuite.AuthHandlerRequests = {
       "test-dir": {"bar.js": "content 123", "foo.html": "<h1>hello world</h1>"}});
    helper.createUserAuthConf(authConfFile, {
    "users": [
-      {"name": "user1", "group": "group1", "email": "user1@test", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
-      {"name": "user2", "group": "group2", "email": "user2@test", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}]});
+      {"name": "user1", "groups": ["group1"], "email": "user1@test", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
+      {"name": "user2", "groups": ["group2"], "email": "user2@test", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}]});
     run();
   },
 
@@ -60,7 +60,7 @@ testSuite.AuthHandlerRequests = {
       async.series([
         function(next) {
           lifeStarTest.POST('/test-login',
-            "username=user1&password=wrong+pwd", {"Content-Type": "application/x-www-form-urlencoded"},
+            "name=user1&password=wrong+pwd", {"Content-Type": "application/x-www-form-urlencoded"},
             function(res) {
               test.equals('Moved Temporarily. Redirecting to /test-login?note=Login%2520failed!', res.body);
               test.deepEqual({}, helper.cookieFromResponse(res));
@@ -70,13 +70,12 @@ testSuite.AuthHandlerRequests = {
         // now with correct
         function(next) {
           lifeStarTest.POST('/test-login',
-            "username=user1&password=foobar&redirect=%2Ffoo.html", {"Content-Type": "application/x-www-form-urlencoded"},
+            "name=user1&password=foobar&redirect=%2Ffoo.html", {"Content-Type": "application/x-www-form-urlencoded"},
             function(res) {
               test.equals('Moved Temporarily. Redirecting to /foo.html', res.body);
               test.deepEqual({
                 'test-auth-cookie': {
                   username: 'user1',
-                  group: 'group1',
                   email: 'user1@test',
                   passwordHash: '$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS'}},
                 helper.cookieFromResponse(res));
@@ -89,17 +88,31 @@ testSuite.AuthHandlerRequests = {
 
   "test register user": function(test) {
     lifeStarTest.withLifeStarDo(test, function() {
-      // first with wrong password
       async.series([
+
+        // first with invalid email
         function(next) {
           lifeStarTest.POST('/test-register',
-            "username=user3&password=xxx", {"Content-Type": "application/x-www-form-urlencoded"},
+            "name=user3&password=xxx&email=thisisnoemail", {"Content-Type": "application/x-www-form-urlencoded"},
             function(res) {
-              test.equals('Moved Temporarily. Redirecting to /welcome.html', res.body);
-              test.equals("user3", helper.cookieFromResponse(res)["test-auth-cookie"].username);
+              test.equals('Moved Temporarily. Redirecting to /test-register?note=Error:%20Invalid%20email:%20thisisnoemail', res.body);
               next();
             });
         },
+
+        // this should now work
+        function(next) {
+          lifeStarTest.POST('/test-register',
+            "name=user3&password=xxx&email=foo@bar", {"Content-Type": "application/x-www-form-urlencoded"},
+            function(res) {
+              test.equals('Moved Temporarily. Redirecting to /welcome.html', res.body);
+              var cookie = helper.cookieFromResponse(res)["test-auth-cookie"];
+              test.equals("user3", cookie && cookie.username);
+              next();
+            });
+        },
+
+        // check file
         function(next) {
           var fileContent = fs.readFileSync(authConfFile);
           var jso = JSON.parse(fileContent);
@@ -108,12 +121,14 @@ testSuite.AuthHandlerRequests = {
         },
         function(next) {
           lifeStarTest.POST('/test-login',
-            "username=user3&password=xxx", {"Content-Type": "application/x-www-form-urlencoded"},
+            "name=user3&password=xxx", {"Content-Type": "application/x-www-form-urlencoded"},
             function(res) {
-              test.equals("user3", helper.cookieFromResponse(res)["test-auth-cookie"].username);
+              var cookie = helper.cookieFromResponse(res)["test-auth-cookie"];
+              test.equals("user3", cookie && cookie.username);
               next();
             });
         }
+
       ], test.done);
     }, serverConf);
   }
@@ -136,8 +151,8 @@ testSuite.AccessControlViaChains = {
     });
    helper.createUserAuthConf(authConfFile, {
    "users": [
-      {"name": "user1", "group": "group1", "email": "user1@test", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
-      {"name": "user2", "group": "group2", "email": "user2@test", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}],
+      {"name": "user1", "groups": ["group1"], "email": "user1@test", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
+      {"name": "user2", "groups": ["group2"], "email": "user2@test", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}],
     "accessRules": [
       function(user, req, callback) { callback(null, user.name === "user1" ? "allow" : null); },
       function(user, req, callback) { callback(null, !req.path.match(/\/restricted-dir\//) && req.method === "GET" ? "allow" : null); }]
