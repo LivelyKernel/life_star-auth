@@ -21,7 +21,9 @@ var path      = require("path"),
           register: '/test-register',
           logout: '/test-logout',
           currentUser: '/test-current-user',
-          checkPassword: '/test-check-password'
+          checkPassword: '/test-check-password',
+          userExists: '/test-users-exists',
+          listUsers: '/test-list-users'
         }
       },
       fsNode: path.join(__dirname, "test-dir")
@@ -195,8 +197,8 @@ testSuite.AccessControlViaChains = {
       {"name": "user1", "groups": ["group1"], "email": "user1@test", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
       {"name": "user2", "groups": ["group2"], "email": "user2@test", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}],
     "accessRules": [
-      function(user, req, callback) { callback(null, user.name === "user1" ? "allow" : null); },
-      function(user, req, callback) { callback(null, !req.path.match(/\/restricted-dir\//) && req.method === "GET" ? "allow" : null); }]
+      function(userDB, user, req, callback) { callback(null, user.name === "user1" ? "allow" : null); },
+      function(userDB, user, req, callback) { callback(null, !req.path.match(/\/restricted-dir\//) && req.method === "GET" ? "allow" : null); }]
     });
     run();
   },

@@ -124,8 +124,8 @@ testSuite.AccessChainsTest = {
         {"name": "userX", "email": "x@y", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
         {"name": "userY", "email": "y@z", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}],
       "accessRules": [
-        function(user, req, callback) { callback(null, user.name === "userX" ? "allow" : null); },
-        function(user, req, callback) { callback(null, user.name === "userY" && req.method === "GET" ? "allow" : null); }
+        function(userDB, user, req, callback) { callback(null, user.name === "userX" ? "allow" : null); },
+        function(userDB, user, req, callback) { callback(null, user.name === "userY" && req.method === "GET" ? "allow" : null); }
       ]});
 
     async.waterfall([
@@ -173,8 +173,8 @@ testSuite.UserDBAccessAndChange = {
       {"name": "userX", "email": "x@y", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
       {"name": "userY", "email": "y@z", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}],
     "accessRules": [
-      function(user, req, callback) { callback(null, user.name === "userX" ? "allow" : null); },
-      function(user, req, callback) { callback(null, user.name === "userY" && req.method === "GET" ? "allow" : null); }
+      function(userDB, user, req, callback) { callback(null, user.name === "userX" ? "allow" : null); },
+      function(userDB, user, req, callback) { callback(null, user.name === "userY" && req.method === "GET" ? "allow" : null); }
     ]});
     run();
   },
@@ -273,8 +273,8 @@ testSuite.UserDBAccessAndChange = {
       function(db, next) { db.getAccessRules(next); },
       function(rules, next) {
         test.deepEqual([
-          'function (user, req, callback) { callback(null, user.name === "userX" ? "allow" : null); }',
-          'function (user, req, callback) { callback(null, user.name === "userY" && req.method === "GET" ? "allow" : null); }'],
+          'function (userDB, user, req, callback) { callback(null, user.name === "userX" ? "allow" : null); }',
+          'function (userDB, user, req, callback) { callback(null, user.name === "userY" && req.method === "GET" ? "allow" : null); }'],
           rules);
         next(); 
       }
@@ -285,13 +285,13 @@ testSuite.UserDBAccessAndChange = {
     async.waterfall([
       function(next) { auth.UserDatabase.fromFile("test-user-db.json", next); },
       function(db, next) {
-        db.setAccessRules(['function (user, req, callback) { callback(null, "deny"); }'], function(err) {
+        db.setAccessRules(['function (userDB, user, req, callback) { callback(null, "deny"); }'], function(err) {
           next(err, db); });
       },
       function(db, next) {
         test.equals(1, db.accessRules.length);
         test.equals('function', typeof db.accessRules[0]);
-        test.equals('function (user, req, callback) { callback(null, "deny"); }', String(db.accessRules[0]));
+        test.equals('function (userDB, user, req, callback) { callback(null, "deny"); }', String(db.accessRules[0]));
         next(); 
       }
     ], test.done);
