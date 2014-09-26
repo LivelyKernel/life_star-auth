@@ -88,7 +88,31 @@ testSuite.UserDatabaseTest = {
         db.checkPassword("yyy", "12345", function(err, matches) { next(err, db, matches); });
       },
     ], test.done);
-  }
+  },
+
+  "database changes create database file backup": function(test) {
+    var db, data = helper.createUserAuthConf(authConfFile, {"users": []});
+    async.series([
+      function(next) { new auth.UserDatabase.fromFile(authConfFile, function(err, _db) { db = _db; next(); }); },
+      function(next) {
+        test.ok(fs.existsSync(db.userFile), "no db file?");
+        test.ok(!fs.existsSync(db.userFile + ".1"), "backup already there?");
+        next();
+      },
+      function(next) { db.register({name: "foo", group: "foos group", email: "foo@bar", password: "geheim"}, next); },
+      function(next) {
+        test.ok(fs.existsSync(db.userFile), "no db file 2?");
+        test.ok(fs.existsSync(db.userFile + ".1"), "backup not there?");
+        async.forEach([1,2,3,4,5,6,7,8,9,10], function(i, next) {
+          db.register({name: "foo"+i, group: "foos group", email: "foo@bar", password: "geheim"}, next); 
+        }, next);
+      },
+    ], function(err) {
+      // console.log(fs.readdirSync(require("path").dirname(db.userFile)));
+      test.ok(fs.existsSync(db.userFile + ".11"), "no 11. backup file?");
+      test.done();
+    })    
+  },
 }
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
