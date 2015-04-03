@@ -1,6 +1,6 @@
 {
   "name": "life_star-auth",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Robert Krahn <robert.krahn@gmail.com>",
   "description": "Authentication and authorization for Lively Web servers",
   "dependencies": {
@@ -11,7 +11,7 @@
   },
   "devDependencies": {
     "cookie-signature": "^1.0.4",
-    "life_star": "git://github.com/LivelyKernel/life_star.git#auth",
+    "life_star": "git://github.com/LivelyKernel/life_star.git",
     "nodeunit": "^0.9.0"
   },
   "repository": {
