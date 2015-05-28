@@ -8,25 +8,25 @@ var path      = require("path"),
     util      = require('util'),
     fs        = require('fs'),
     testHelper   = require('life_star/tests/test-helper'),
-    lifeStarTest = require("life_star/tests/life_star-test-support"),
+    lifeStarTest = require('life_star/tests/life_star-test-support'),
     testSuite    = {},
     authConfFile = "test-user-db.json",
     serverConf   = {
-      authConf: {
-        enabled: true,
-        cookieField: "test-auth-cookie",
-        usersFile: authConfFile,
-        paths: {
-          login: '/test-login',
-          register: '/test-register',
-          logout: '/test-logout',
-          currentUser: '/test-current-user',
-          checkPassword: '/test-check-password',
-          userExists: '/test-users-exists',
-          listUsers: '/test-list-users'
-        }
-      },
       fsNode: path.join(__dirname, "test-dir")
+    },
+    livelyConfig = {
+      userAuthEnabled: true,
+      cookieField: "test-auth-cookie",
+      usersFile: authConfFile,
+      authPaths: {
+        login: '/test-login',
+        register: '/test-register',
+        logout: '/test-logout',
+        currentUser: '/test-current-user',
+        checkPassword: '/test-check-password',
+        userExists: '/test-users-exists',
+        listUsers: '/test-list-users'
+      }
     };
 
 testSuite.AuthHandlerRequests = {
@@ -34,8 +34,10 @@ testSuite.AuthHandlerRequests = {
   setUp: function(run) {
     lifeStarTest.createDirStructure(__dirname, {
       "test-dir": {"bar.js": "content 123", "foo.html": "<h1>hello world</h1>"}});
-   helper.createUserAuthConf(authConfFile, {
-   "users": [
+    global.lively = { Config: livelyConfig };
+    global.lively.Config.get = function(item) { return this[item]; }
+    helper.createUserAuthConf(authConfFile, {
+    "users": [
       {"name": "user1", "groups": ["group1"], "email": "user1@test", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
       {"name": "user2", "groups": ["group2"], "email": "user2@test", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.oKsaDwPFMdyQRhOGCsmCazims1mOTNa"}]});
     run();
