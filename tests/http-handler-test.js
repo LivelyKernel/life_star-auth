@@ -3,29 +3,30 @@
 var helper    = require('./helper');
 helper.linkLifeStarAuthModuleToLifeStar();
 
-var path      = require("path"),
-    async     = require('async'),
-    util      = require('util'),
-    fs        = require('fs'),
+var path         = require("path"),
+    async        = require('async'),
+    util         = require('util'),
+    fs           = require('fs'),
     testHelper   = require('life_star/tests/test-helper'),
     lifeStarTest = require('life_star/tests/life_star-test-support'),
     testSuite    = {},
     authConfFile = "test-user-db.json",
     serverConf   = {
-      fsNode: path.join(__dirname, "test-dir")
-    },
-    livelyConfig = {
-      userAuthEnabled: true,
-      cookieField: "test-auth-cookie",
-      usersFile: authConfFile,
-      authPaths: {
-        login: '/test-login',
-        register: '/test-register',
-        logout: '/test-logout',
-        currentUser: '/test-current-user',
-        checkPassword: '/test-check-password',
-        userExists: '/test-users-exists',
-        listUsers: '/test-list-users'
+      fsNode: path.join(__dirname, "test-dir"),
+      authConf: {
+        enabled: true,
+        cookieField: "test-auth-cookie",
+        usersFile: authConfFile,
+        requireLogin: true,
+        paths: {
+          login: '/test-login',
+          register: '/test-register',
+          logout: '/test-logout',
+          currentUser: '/test-current-user',
+          checkPassword: '/test-check-password',
+          userExists: '/test-users-exists',
+          listUsers: '/test-list-users'
+        }
       }
     };
 
@@ -34,8 +35,6 @@ testSuite.AuthHandlerRequests = {
   setUp: function(run) {
     lifeStarTest.createDirStructure(__dirname, {
       "test-dir": {"bar.js": "content 123", "foo.html": "<h1>hello world</h1>"}});
-    global.lively = { Config: livelyConfig };
-    global.lively.Config.get = function(item) { return this[item]; }
     helper.createUserAuthConf(authConfFile, {
     "users": [
       {"name": "user1", "groups": ["group1"], "email": "user1@test", hash: "$2a$10$IfbfBnl486M2rTq3flpeg.MoU80gW0O7BceVvxZvWiWZLQpnr8.vS"},
@@ -54,7 +53,7 @@ testSuite.AuthHandlerRequests = {
     lifeStarTest.withLifeStarDo(test, function() {
       lifeStarTest.GET('/foo.html', function(res) {
         test.equals(302, res.statusCode);
-        test.equals('Moved Temporarily. Redirecting to /test-login?redirect=%252Ffoo.html', res.body);
+        test.ok(String(res.body).match(/Redirecting to \/test-login\?redirect=%252Ffoo.html/), "Redirect response: " + String(res.body));
         test.done();
       });
     }, serverConf);
@@ -68,7 +67,7 @@ testSuite.AuthHandlerRequests = {
           lifeStarTest.POST('/test-login',
             "name=user1&password=wrong+pwd", {"Content-Type": "application/x-www-form-urlencoded"},
             function(res) {
-              test.equals('Moved Temporarily. Redirecting to /test-login?note=Login%2520failed!', res.body);
+              test.ok(String(res.body).match(/Redirecting to \/test-login\?note=Login%2520failed\!/, res.body));
               test.deepEqual({}, helper.cookieFromResponse(res));
               next();
             });
@@ -78,7 +77,7 @@ testSuite.AuthHandlerRequests = {
           lifeStarTest.POST('/test-login',
             "name=user1&password=foobar&redirect=%2Ffoo.html", {"Content-Type": "application/x-www-form-urlencoded"},
             function(res) {
-              test.equals('Moved Temporarily. Redirecting to /foo.html', res.body);
+              test.ok(String(res.body).match(/Redirecting to \/foo.html/, res.body));
               test.deepEqual({
                 'test-auth-cookie': {
                   username: 'user1',
@@ -101,7 +100,7 @@ testSuite.AuthHandlerRequests = {
           lifeStarTest.POST('/test-register',
             "name=user3&password=xxx&email=thisisnoemail", {"Content-Type": "application/x-www-form-urlencoded"},
             function(res) {
-              test.equals('Moved Temporarily. Redirecting to /test-register?note=Error:%20Invalid%20email:%20thisisnoemail', res.body);
+              test.ok(String(res.body).match(/Redirecting to \/test-register\?note=Error:%20Invalid%20email:%20thisisnoemail/, res.body));
               next();
             });
         },
@@ -111,7 +110,7 @@ testSuite.AuthHandlerRequests = {
           lifeStarTest.POST('/test-register',
             "name=user3&password=xxx&email=foo@bar", {"Content-Type": "application/x-www-form-urlencoded"},
             function(res) {
-              test.equals('Moved Temporarily. Redirecting to /welcome.html', res.body);
+              test.ok(String(res.body).match(/Redirecting to \/welcome.html/, res.body));
               var cookie = helper.cookieFromResponse(res)["test-auth-cookie"];
               test.equals("user3", cookie && cookie.username);
               next();
