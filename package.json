@@ -1,6 +1,6 @@
 {
   "name": "life_star-auth",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "author": "Robert Krahn <robert.krahn@gmail.com>",
   "description": "Authentication and authorization for Lively Web servers",
   "dependencies": {
